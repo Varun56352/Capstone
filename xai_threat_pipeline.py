@@ -43,13 +43,13 @@ UNSW_MAP = {
     "normal": "Normal",
     "backdoor": "R2L/BruteForce",
     "analysis": "Recon/Probe",
-    "fuzzers": "Other",
+    "fuzzers": "Recon/Probe",         # probing for vulnerabilities
     "reconnaissance": "Recon/Probe",
     "shellcode": "R2L/BruteForce",
     "dos": "DoS/DDoS",
     "exploits": "R2L/BruteForce",
     "worms": "Other",
-    "generic": "Other",
+    "generic": "DoS/DDoS",             # high-volume block-cipher attacks
 }
 
 TON_MAP = {
@@ -64,6 +64,33 @@ TON_MAP = {
     "mitm": "Other",
     "backdoor": "R2L/BruteForce",
     "ransomware": "Other",
+}
+
+# Official UNSW-NB15 column names (the CSV in this repo has no header row).
+UNSW_COLUMNS = [
+    "srcip", "sport", "dstip", "dsport", "proto", "state", "dur",
+    "sbytes", "dbytes", "sttl", "dttl", "sloss", "dloss", "service",
+    "Sload", "Dload", "Spkts", "Dpkts", "swin", "dwin", "stcpb",
+    "dtcpb", "smeansz", "dmeansz", "trans_depth", "res_bdy_len",
+    "Sjit", "Djit", "Stime", "Ltime", "Sintpkt", "Dintpkt",
+    "tcprtt", "synack", "ackdat", "is_sm_ips_ports", "ct_state_ttl",
+    "ct_flw_http_mthd", "is_ftp_login", "ct_ftp_cmd", "ct_srv_src",
+    "ct_srv_dst", "ct_dst_ltm", "ct_src_ltm", "ct_src_dport_ltm",
+    "ct_dst_sport_ltm", "ct_dst_src_ltm", "attack_cat", "label",
+]
+
+# Semantic mapping: rename UNSW columns to match TON_IoT naming convention.
+# Only features that have a clear semantic equivalent in both datasets.
+UNSW_TO_COMMON = {
+    "sport": "src_port",
+    "dsport": "dst_port",
+    "dur": "duration",
+    "sbytes": "src_bytes",
+    "dbytes": "dst_bytes",
+    "state": "conn_state",
+    "Spkts": "src_pkts",
+    "Dpkts": "dst_pkts",
+    # "proto" and "service" already match between datasets
 }
 
 
@@ -89,87 +116,154 @@ def map_attack_labels(labels: pd.Series, mapping: Dict[str, str]) -> pd.Series:
     return pd.Series(pd.Categorical(mapped, categories=COMMON_CLASSES), index=labels.index)
 
 
+# --- Connection state normalization ----------------------------------------
+# UNSW-NB15 and TON_IoT (Zeek/Bro) use different encodings for TCP state.
+# Map both to a simple common scheme so the categorical feature transfers.
+_CONN_STATE_MAP = {}
+# UNSW states
+for s in ("FIN", "CON", "CLO"):
+    _CONN_STATE_MAP[s.lower()] = "established"
+for s in ("REQ", "RST", "no"):
+    _CONN_STATE_MAP[s.lower()] = "rejected"
+for s in ("ACC", "INT", "PAR", "URH", "URN", "ECO"):
+    _CONN_STATE_MAP[s.lower()] = "attempt"
+# Zeek/TON states
+for s in ("SF", "S1", "S2", "S3"):
+    _CONN_STATE_MAP[s.lower()] = "established"
+for s in ("REJ", "RSTO", "RSTR", "RSTOS0", "RSTRH"):
+    _CONN_STATE_MAP[s.lower()] = "rejected"
+for s in ("S0", "SH", "SHR", "OTH"):
+    _CONN_STATE_MAP[s.lower()] = "attempt"
+
+
+def normalize_conn_state(series: pd.Series) -> pd.Series:
+    """Map dataset-specific connection states to a common encoding."""
+    return series.astype(str).str.strip().str.lower().map(
+        lambda v: _CONN_STATE_MAP.get(v, "other")
+    )
+
+
+def engineer_features(X: pd.DataFrame) -> pd.DataFrame:
+    """Create derived numeric features that generalise across datasets."""
+    X = X.copy()
+    # Bytes per packet (avoids division by zero)
+    if "src_bytes" in X.columns and "src_pkts" in X.columns:
+        sb = pd.to_numeric(X["src_bytes"], errors="coerce").fillna(0)
+        sp = pd.to_numeric(X["src_pkts"], errors="coerce").fillna(0)
+        X["bytes_per_pkt_src"] = sb / sp.replace(0, 1)
+    if "dst_bytes" in X.columns and "dst_pkts" in X.columns:
+        db = pd.to_numeric(X["dst_bytes"], errors="coerce").fillna(0)
+        dp = pd.to_numeric(X["dst_pkts"], errors="coerce").fillna(0)
+        X["bytes_per_pkt_dst"] = db / dp.replace(0, 1)
+    # Byte ratio (src / total)
+    if "src_bytes" in X.columns and "dst_bytes" in X.columns:
+        sb = pd.to_numeric(X["src_bytes"], errors="coerce").fillna(0)
+        db = pd.to_numeric(X["dst_bytes"], errors="coerce").fillna(0)
+        total = sb + db
+        X["byte_ratio"] = sb / total.replace(0, 1)
+    # Packet ratio
+    if "src_pkts" in X.columns and "dst_pkts" in X.columns:
+        sp = pd.to_numeric(X["src_pkts"], errors="coerce").fillna(0)
+        dp = pd.to_numeric(X["dst_pkts"], errors="coerce").fillna(0)
+        total = sp + dp
+        X["pkt_ratio"] = sp / total.replace(0, 1)
+    # Log-transform skewed numeric features for better normalisation
+    for col in ("src_bytes", "dst_bytes", "duration"):
+        if col in X.columns:
+            vals = pd.to_numeric(X[col], errors="coerce").fillna(0)
+            X[f"log_{col}"] = np.log1p(vals.clip(lower=0))
+    return X
+
+
 def load_dataset(path: Path, label_col: str, dataset_name: str) -> DatasetBundle:
-    # pandas defaults to utf‑8; some of the provided files in this repo use
-    # latin‑1/Windows‑1252 which causes a UnicodeDecodeError. Try utf‑8 first
-    # and fall back to latin‑1 so the pipeline doesn’t crash at startup.
+    """Load a CSV dataset, assign proper column names, and prepare for modelling."""
     mapping = UNSW_MAP if dataset_name == "UNSW-NB15" else TON_MAP
 
-    # In this repo, UNSW-NB15 is saved without a usable header row, so a normal
-    # `pd.read_csv(path)` causes the first data row to be treated as headers.
-    # That leads to unnecessary extra full-file reads and lots of downstream
-    # confusion. Load UNSW as headerless up-front.
+    # --- 1. Read CSV --------------------------------------------------------
     if dataset_name == "UNSW-NB15":
+        # UNSW CSV has no header row in this repo.
         try:
             df = pd.read_csv(path, header=None, low_memory=False)
         except UnicodeDecodeError:
             df = pd.read_csv(path, header=None, low_memory=False, encoding="latin-1")
+
+        # Assign the official UNSW-NB15 column names.
+        if len(df.columns) == len(UNSW_COLUMNS):
+            df.columns = UNSW_COLUMNS
+        else:
+            print(
+                f"WARNING: UNSW CSV has {len(df.columns)} columns, expected "
+                f"{len(UNSW_COLUMNS)}. Falling back to positional names."
+            )
     else:
         try:
-            df = pd.read_csv(path)
+            df = pd.read_csv(path, low_memory=False)
         except UnicodeDecodeError:
-            df = pd.read_csv(path, encoding="latin-1")
+            df = pd.read_csv(path, encoding="latin-1", low_memory=False)
 
-    # If the label column isn't present, try to infer it from the data.
+    # --- 2. Resolve the label column ----------------------------------------
     if label_col not in df.columns:
-        # Common case: CSV has no header row (pandas treated the first data row as headers).
-        # Read without a header so we can inspect all columns.
-        # Fast inference: scan only a small prefix to avoid a full-column pass over
-        # very large UNSW CSVs (which can make the pipeline appear "stuck").
-        sample_rows = 5000
-        if dataset_name == "UNSW-NB15":
-            df_no_header = df
-            df_sample = df_no_header.head(sample_rows)
-        else:
-            try:
-                df_no_header = pd.read_csv(path, header=None, low_memory=False)
-            except UnicodeDecodeError:
-                df_no_header = pd.read_csv(path, header=None, low_memory=False, encoding="latin-1")
-            try:
-                df_sample = pd.read_csv(path, header=None, nrows=sample_rows, low_memory=False)
-            except UnicodeDecodeError:
-                df_sample = pd.read_csv(path, header=None, nrows=sample_rows, low_memory=False, encoding="latin-1")
-
+        # Try to infer the label column by matching values to the attack map.
+        sample = df.head(5000)
         keys = set(mapping.keys())
-        best_col = None
-        best_score = 0.0
-        for col in df_sample.columns:
-            values = df_sample[col].dropna().astype(str).str.strip().str.lower()
-            if values.empty:
+        best_col, best_score = None, 0.0
+        for col in sample.columns:
+            vals = sample[col].dropna().astype(str).str.strip().str.lower()
+            if vals.empty:
                 continue
-            match_count = values.isin(keys).sum()
-            score = match_count / len(values)
+            score = vals.isin(keys).sum() / len(vals)
             if score > best_score:
                 best_score = score
                 best_col = col
-
-        # Use the best column if it has any meaningful match; otherwise fall back.
         if best_col is not None and best_score > 0.01:
             label_col = best_col
-            df = df_no_header
         else:
-            # Fallback: use the last column (often a binary attack flag) and warn.
-            label_col = df_no_header.columns[-1]
-            df = df_no_header
+            label_col = df.columns[-1]
             print(
-                f"WARNING: {dataset_name}: label column inferred as last column (fallback).",
-                "If the datasets are pre-encoded, the taxonomy mapping may be bypassed.",
+                f"WARNING: {dataset_name}: label column inferred as last column (fallback)."
             )
 
-    y_raw = df[label_col]
-    # Drop rows where the label is missing; these cannot be used for training.
+    # --- 3. Handle labels ---------------------------------------------------
+    y_raw = df[label_col].copy()
+
+    # For UNSW, NaN in attack_cat means Normal traffic (label == 0).
+    if dataset_name == "UNSW-NB15" and label_col == "attack_cat":
+        y_raw = y_raw.fillna("Normal")
+        y_raw = y_raw.replace("", "Normal")
+
+    # Drop rows where the label is still truly missing.
     nonnull_mask = y_raw.notna() & (y_raw.astype(str).str.strip() != "")
-    df = df[nonnull_mask]
-    y_raw = y_raw[nonnull_mask]
+    df = df.loc[nonnull_mask]
+    y_raw = y_raw.loc[nonnull_mask]
 
-    y_raw = df[label_col]
     X = df.drop(columns=[label_col])
-
     y = map_attack_labels(y_raw, mapping)
 
-    # Remove likely ID-like fields if present.
-    drop_candidates = ["id", "flow_id", "timestamp", "ts"]
+    # --- 4. Drop non-generalizable columns (IPs, timestamps, IDs) -----------
+    drop_candidates = [
+        "id", "flow_id", "timestamp", "ts",
+        "srcip", "dstip", "src_ip", "dst_ip",  # IP addresses don't transfer
+        "Stime", "Ltime",                       # absolute timestamps
+    ]
     X = X.drop(columns=[c for c in drop_candidates if c in X.columns], errors="ignore")
+
+    # Drop the binary "label" column if present — it leaks the target.
+    if "label" in X.columns:
+        X = X.drop(columns=["label"])
+
+    # --- 5. Rename UNSW columns to unified (TON-style) names ----------------
+    if dataset_name == "UNSW-NB15":
+        X = X.rename(columns=UNSW_TO_COMMON)
+
+    # --- 6. Normalize categorical features for cross-dataset transfer -------
+    if "conn_state" in X.columns:
+        X["conn_state"] = normalize_conn_state(X["conn_state"])
+
+    # --- 7. Engineer derived features that transfer well --------------------
+    X = engineer_features(X)
+
+    print(f"  {dataset_name}: {X.shape[0]} rows, {X.shape[1]} features, "
+          f"classes = {sorted(y.unique())}")
     return DatasetBundle(dataset_name, X, y)
 
 
@@ -229,23 +323,33 @@ def evaluate(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
 
 def train_models(X_train: np.ndarray, y_train: np.ndarray) -> Dict[str, object]:
     """
-    Train models with safety guards for large datasets.
+    Train models with tuned hyperparameters.
 
-    SVC (RBF) can become prohibitively slow on the oversampled dataset size; when the
-    training set is large we only train RandomForest (and keep SHAP consistent).
+    SVC (RBF) can become prohibitively slow on very large datasets; when the
+    training set is huge we only train RandomForest.
     """
     n = len(X_train)
 
     models: Dict[str, object] = {
-        "RandomForest": RandomForestClassifier(n_estimators=300, random_state=42, n_jobs=-1),
+        "RandomForest": RandomForestClassifier(
+            n_estimators=500, max_depth=30, min_samples_split=5,
+            class_weight="balanced", random_state=42, n_jobs=-1,
+        ),
     }
-    # Enable the more expensive models only when the training set is reasonably sized.
-    if n <= 10000:
-        models["SVM"] = SVC(kernel="rbf", probability=True, random_state=42)
-    if n <= 10000:
-        models["ANN"] = MLPClassifier(hidden_layer_sizes=(128, 64), max_iter=200, random_state=42)
+    # Enable the more expensive models up to a reasonable size.
+    if n <= 100000:
+        models["SVM"] = SVC(
+            kernel="rbf", C=10, gamma="scale",
+            probability=True, class_weight="balanced", random_state=42,
+        )
+    if n <= 100000:
+        models["ANN"] = MLPClassifier(
+            hidden_layer_sizes=(256, 128, 64), max_iter=800,
+            random_state=42,
+        )
 
-    for model in models.values():
+    for name, model in models.items():
+        print(f"    Training {name} on {n} samples...")
         model.fit(X_train, y_train)
     return models
 
@@ -268,6 +372,7 @@ def align_common_features(a: pd.DataFrame, b: pd.DataFrame) -> Tuple[pd.DataFram
         )
         return a, b, common
 
+    print(f"  Shared semantic features ({len(common)}): {common}")
     return a[common].copy(), b[common].copy(), common
 
 
@@ -324,7 +429,13 @@ def run_within_dataset(bundle: DatasetBundle, out_dir: Path) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def run_cross_dataset(source: DatasetBundle, target: DatasetBundle) -> pd.DataFrame:
+def _to_binary(labels) -> pd.Series:
+    """Convert multi-class labels to binary Normal/Attack."""
+    return labels.map(lambda x: "Normal" if x == "Normal" else "Attack")
+
+
+def run_cross_dataset(source: DatasetBundle, target: DatasetBundle) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Returns (multi_class_metrics, binary_metrics)."""
     X_source, X_target, _ = align_common_features(source.X, target.X)
 
     preprocessor = build_preprocessor(X_source)
@@ -342,15 +453,34 @@ def run_cross_dataset(source: DatasetBundle, target: DatasetBundle) -> pd.DataFr
         X_source_bal = X_source_bal[idx]
         y_source_bal = y_source_bal[idx]
 
+    # --- Multi-class evaluation ---
     models = train_models(X_source_bal, y_source_bal)
-
-    rows = []
+    mc_rows = []
     for name, model in models.items():
         pred = model.predict(X_target_t)
         metrics = evaluate(target.y, pred)
-        rows.append({"train_on": source.name, "test_on": target.name, "model": name, **metrics})
+        mc_rows.append({"train_on": source.name, "test_on": target.name, "model": name, **metrics})
 
-    return pd.DataFrame(rows)
+    # --- Binary (Normal vs Attack) evaluation ---
+    # Train directly from original preprocessed data (NOT multi-class SMOTE output)
+    y_source_bin = _to_binary(source.y)
+    y_target_bin = _to_binary(target.y)
+
+    smote_bin = SMOTE(random_state=42)
+    X_src_bin, y_src_bin = smote_bin.fit_resample(X_source_t, y_source_bin)
+    if len(X_src_bin) > max_train_rows:
+        rng = np.random.default_rng(42)
+        idx = rng.choice(len(X_src_bin), size=max_train_rows, replace=False)
+        X_src_bin, y_src_bin = X_src_bin[idx], y_src_bin.iloc[idx]
+
+    bin_models = train_models(X_src_bin, y_src_bin)
+    bin_rows = []
+    for name, model in bin_models.items():
+        pred = model.predict(X_target_t)
+        metrics = evaluate(y_target_bin, pred)
+        bin_rows.append({"train_on": source.name, "test_on": target.name, "model": name, **metrics})
+
+    return pd.DataFrame(mc_rows), pd.DataFrame(bin_rows)
 
 
 def parse_args() -> argparse.Namespace:
@@ -373,9 +503,9 @@ def parse_args() -> argparse.Namespace:
         help="path to the TON_IoT CSV file (default: data/TON_IoT.csv)",
     )
     p.add_argument("--unsw-label-col", type=str, default="attack_cat")
-    # In this repo's TON CSV, `label` is a binary attack flag; default to it so
-    # UNSW (pre-encoded) and TON use the same label style.
-    p.add_argument("--ton-label-col", type=str, default="label")
+    # Use the 'type' column (text attack categories) instead of 'label' (binary
+    # 0/1) so both datasets map into the same multi-class taxonomy.
+    p.add_argument("--ton-label-col", type=str, default="type")
     p.add_argument("--out-dir", type=Path, default=Path("outputs"))
     return p.parse_args()
 
@@ -406,14 +536,14 @@ def main() -> None:
     )
     within_df.to_csv(args.out_dir / "within_dataset_metrics.csv", index=False)
 
-    cross_df = pd.concat(
-        [
-            run_cross_dataset(unsw, ton),
-            run_cross_dataset(ton, unsw),
-        ],
-        ignore_index=True,
-    )
+    mc1, bin1 = run_cross_dataset(unsw, ton)
+    mc2, bin2 = run_cross_dataset(ton, unsw)
+
+    cross_df = pd.concat([mc1, mc2], ignore_index=True)
     cross_df.to_csv(args.out_dir / "cross_dataset_metrics.csv", index=False)
+
+    cross_bin_df = pd.concat([bin1, bin2], ignore_index=True)
+    cross_bin_df.to_csv(args.out_dir / "cross_dataset_binary_metrics.csv", index=False)
 
     with open(args.out_dir / "common_features.json", "w", encoding="utf-8") as fp:
         json.dump(common_features, fp, indent=2)

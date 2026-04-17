@@ -1,0 +1,185 @@
+# XAI Threat Pipeline — Code Analysis & Upgrade Plan
+
+## 1. Pipeline Flow Overview
+
+```mermaid
+flowchart TD
+    A["Load UNSW-NB15 CSV<br/>(header=None, 49 cols)"] --> C["Map attack labels<br/>(UNSW_MAP)"]
+    B["Load TON_IoT CSV<br/>(has headers, 44 cols)"] --> D["Map attack labels<br/>(TON_MAP)"]
+    C --> E["align_common_features()"]
+    D --> E
+    E --> F["Within-dataset eval<br/>(train/test split on same dataset)"]
+    E --> G["Cross-dataset eval<br/>(train on A, test on B)"]
+    F --> H["Output: within_dataset_metrics.csv"]
+    G --> I["Output: cross_dataset_metrics.csv"]
+    E --> J["SHAP explanations"]
+```
+
+### Step-by-step:
+
+1. **Load Datasets** — `load_dataset()` reads each CSV. UNSW is loaded with `header=None` (no column names → columns become `0, 1, 2, …, 48`). TON is loaded normally (columns become `src_ip, src_port, dst_ip, …, type`).
+
+2. **Infer Label Column** — Since `attack_cat` doesn't exist in UNSW's integer column names, the code scans all columns looking for values that match the `UNSW_MAP` keys. It finds the attack category column by pattern matching. For TON, `label` exists in headers so it's used directly.
+
+3. **Map Labels** — Attack types are mapped to 5 common classes: `Normal`, `DoS/DDoS`, `Recon/Probe`, `R2L/BruteForce`, `Other`. However, if labels are numeric (like TON's `label` column which is just `0`/`1`), the mapping is **bypassed** and they stay as integers.
+
+4. **Align Features** — `align_common_features()` tries to find columns with matching names between datasets.
+
+5. **Preprocess** — Numeric columns get imputed + scaled. Categorical columns get ordinal-encoded.
+
+6. **SMOTE** — Oversamples minority classes to balance the training set.
+
+7. **Train & Evaluate** — RandomForest (and SVM/ANN if ≤10k rows) trained, then tested.
+
+---
+
+## 2. The Column Selection Problem — Root Cause of Low Accuracy
+
+> [!CAUTION]
+> **This is the critical issue.** The two datasets have **completely different column naming schemes**, causing the alignment to fall back to **positional matching** — which is semantically meaningless.
+
+### What happens in `align_common_features()`:
+
+```python
+common = sorted(set(a.columns).intersection(b.columns))
+# UNSW columns: [0, 1, 2, 3, ..., 47]  (integers, no header)
+# TON columns:  ['src_ip', 'src_port', 'dst_ip', ...]  (strings)
+# Intersection: EMPTY — no shared names!
+```
+
+Since the intersection is empty, it falls back to:
+
+```python
+min_cols = min(a.shape[1], b.shape[1])  # min(48, 43) = 43
+common = ["f0", "f1", "f2", ..., "f42"]
+# Just takes the first 43 columns from each, renamed to f0-f42
+```
+
+### The result — Features are completely misaligned:
+
+| Positional Index | UNSW-NB15 Column | TON_IoT Column | Match? |
+|---|---|---|---|
+| f0 | `srcip` (Source IP) | `src_ip` (Source IP) | ✅ Same concept |
+| f1 | `sport` (Source Port) | `src_port` (Source Port) | ✅ Same concept |
+| f2 | `dstip` (Dest IP) | `dst_ip` (Dest IP) | ✅ Same concept |
+| f3 | `dsport` (Dest Port) | `dst_port` (Dest Port) | ✅ Same concept |
+| f4 | `proto` (Protocol) | `proto` (Protocol) | ✅ Same concept |
+| **f5** | **`state` (TCP state: FIN, CON…)** | **`service` (Service type)** | ❌ **Different!** |
+| **f6** | **`dur` (Duration)** | **`duration` (Duration)** | ✅ Same concept |
+| **f7** | **`sbytes` (Src Bytes)** | **`src_bytes` (Src Bytes)** | ✅ Same concept |
+| **f8** | **`dbytes` (Dst Bytes)** | **`dst_bytes` (Dst Bytes)** | ✅ Same concept |
+| **f9** | **`sttl` (Src TTL)** | **`conn_state` (Connection state)** | ❌ **Different!** |
+| **f10** | **`dttl` (Dst TTL)** | **`missed_bytes`** | ❌ **Different!** |
+| **f11** | **`sloss` (Src packets lost)** | **`src_pkts`** | ❌ **Different!** |
+| f12–f42 | Various flow stats, timing | DNS/SSL/HTTP fields | ❌ **Mostly different!** |
+
+**From position f9 onward, the features diverge completely.** The model learns that "column f10 = TTL" in UNSW, but at test time "column f10 = missed_bytes" in TON — completely different semantics.
+
+### The asymmetric accuracy explained:
+
+| Direction | Accuracy | Why? |
+|---|---|---|
+| **UNSW → TON** | **23.7%** | Model learned UNSW patterns, tested on TON's misaligned features. Random-like performance. |
+| **TON → UNSW** | **92.4%** | UNSW is ~87% Normal class. TON's model likely predicts "Normal" for most inputs, accidentally achieving high accuracy due to class imbalance — not genuine generalization. |
+
+---
+
+## 3. Second Problem — Label Mismatch
+
+> [!WARNING]
+> The label columns use **different schemes**, further breaking cross-dataset evaluation.
+
+- **UNSW** label: The code finds the `attack_cat` column (text like `Normal`, `DoS`, `Reconnaissance`) → mapped to 5 common classes via `UNSW_MAP`
+- **TON** label: Uses `label` column which is **binary** (`0`/`1`) → `map_attack_labels()` detects numeric values and **bypasses the mapping entirely**, keeping labels as `0` and `1`
+
+So UNSW has classes `["Normal", "DoS/DDoS", "Recon/Probe", "R2L/BruteForce", "Other"]` while TON has classes `[0, 1]`. Cross-dataset evaluation compares predictions across **incompatible label spaces**.
+
+---
+
+## 4. Upgrade Plan — How to Fix Everything
+
+### Fix 1: Add proper UNSW-NB15 column names
+
+The UNSW-NB15 dataset has well-documented column names. We should assign them during loading:
+
+```python
+UNSW_COLUMNS = [
+    "srcip", "sport", "dstip", "dsport", "proto", "state", "dur",
+    "sbytes", "dbytes", "sttl", "dttl", "sloss", "dloss", "service",
+    "Sload", "Dload", "Spkts", "Dpkts", "swin", "dwin", "stcpb",
+    "dtcpb", "smeansz", "dmeansz", "trans_depth", "res_bdy_len",
+    "Sjit", "Djit", "Stime", "Ltime", "Sintpkt", "Dintpkt",
+    "tcprtt", "synack", "ackdat", "is_sm_ips_ports", "ct_state_ttl",
+    "ct_flw_http_mthd", "is_ftp_login", "ct_ftp_cmd", "ct_srv_src",
+    "ct_srv_dst", "ct_dst_ltm", "ct_src_ltm", "ct_src_dport_ltm",
+    "ct_dst_sport_ltm", "ct_dst_src_ltm", "attack_cat", "label"
+]
+```
+
+### Fix 2: Create a semantic feature mapping between datasets
+
+Instead of positional alignment, **explicitly map** equivalent features by meaning:
+
+```python
+FEATURE_MAP = {
+    # UNSW name     →  TON name
+    "sport":          "src_port",
+    "dsport":         "dst_port",
+    "proto":          "proto",
+    "dur":            "duration",
+    "sbytes":         "src_bytes",
+    "dbytes":         "dst_bytes",
+    "Spkts":          "src_pkts",
+    "Dpkts":          "dst_pkts",
+    "state":          "conn_state",
+    "service":        "service",
+}
+```
+
+Then rename both datasets to use a **unified column name** before alignment.
+
+### Fix 3: Use `type` column for TON labels, not `label`
+
+TON_IoT has a `type` column with text attack categories (`backdoor`, `ddos`, `dos`, `scanning`, etc.) that maps properly to the 5 common classes via `TON_MAP`. The current code uses `label` (binary 0/1) which breaks the taxonomy mapping.
+
+### Fix 4: Drop IP addresses from features
+
+IP addresses (`srcip`, `dstip`, `src_ip`, `dst_ip`) are **dataset-specific identifiers** that don't generalize. They should be excluded from cross-dataset features.
+
+### Fix 5: Hyperparameter tuning
+
+- Use `GridSearchCV` or `RandomizedSearchCV` on RandomForest
+- Increase `n_estimators`, tune `max_depth`, `min_samples_split`
+- For ANN: tune learning rate, hidden layers, epochs
+
+### Summary of expected impact:
+
+| Fix | Impact on Cross-Dataset Accuracy |
+|---|---|
+| Semantic feature mapping | **High** — the single most important fix |
+| Use `type` column for TON labels | **High** — enables proper class comparison |
+| Drop IP addresses | **Medium** — removes noise that doesn't generalize |
+| Hyperparameter tuning | **Low-Medium** — refinement after the above |
+
+---
+
+## 5. Current Results (For Reference)
+
+### Within-dataset (train & test on same dataset):
+| Dataset | Accuracy | F1 |
+|---|---|---|
+| UNSW-NB15 | 99.1% | 99.1% |
+| TON_IoT | 99.9% | 99.9% |
+
+### Cross-dataset (train on one, test on the other):
+| Train → Test | Accuracy | F1 |
+|---|---|---|
+| UNSW → TON | **23.7%** | 9.1% |
+| TON → UNSW | 92.4% | 88.8% |
+
+> [!IMPORTANT]  
+> The within-dataset performance is excellent, confirming the models CAN learn patterns. The cross-dataset failure is entirely due to **feature misalignment** and **label incompatibility**, not model weakness.
+
+---
+
+**Want me to implement these fixes in the code?**
