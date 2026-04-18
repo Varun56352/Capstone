@@ -1,0 +1,410 @@
+{
+  "UNSW_UNSW": {
+    "SHAP": {
+      "RandomForest": [
+        "bytes_per_pkt_dst",
+        "src_pkts_per_sec",
+        "dst_bytes_per_sec",
+        "src_bytes",
+        "log_src_bytes",
+        "log_dst_bytes_per_sec",
+        "log_src_pkts_per_sec",
+        "dst_pkts_per_sec",
+        "bytes_per_pkt_src",
+        "pkt_ratio"
+      ],
+      "SVM": [
+        "src_pkts_per_sec",
+        "src_bytes_per_sec",
+        "dst_port",
+        "pkt_ratio",
+        "src_pkts",
+        "src_bytes",
+        "proto",
+        "log_dst_bytes_per_sec",
+        "service",
+        "dst_pkts"
+      ],
+      "XGBoost": [
+        "dst_pkts_per_sec",
+        "dst_bytes_per_sec",
+        "log_src_bytes",
+        "log_dst_pkts_per_sec",
+        "log_src_pkts_per_sec",
+        "log_dst_bytes_per_sec",
+        "pkt_ratio",
+        "bytes_per_pkt_src",
+        "bytes_per_pkt_dst",
+        "src_pkts"
+      ],
+      "CNN": [
+        "bytes_per_pkt_src",
+        "dst_bytes_per_sec",
+        "dst_bytes",
+        "pkt_ratio",
+        "dst_pkts",
+        "log_src_bytes_per_sec",
+        "log_dst_bytes_per_sec",
+        "dst_port",
+        "dst_pkts_per_sec",
+        "log_duration"
+      ]
+    },
+    "LIME": {
+      "RandomForest": [
+        "dst_pkts_per_sec",
+        "log_dst_bytes_per_sec",
+        "bytes_per_pkt_dst",
+        "log_dst_pkts_per_sec",
+        "log_src_pkts_per_sec",
+        "src_pkts_per_sec",
+        "service",
+        "src_bytes_per_sec",
+        "pkt_ratio",
+        "log_dst_bytes"
+      ],
+      "SVM": [
+        "src_pkts_per_sec",
+        "dst_port",
+        "src_bytes_per_sec",
+        "pkt_ratio",
+        "log_duration",
+        "dst_bytes_per_sec",
+        "log_dst_bytes_per_sec",
+        "byte_ratio",
+        "service",
+        "log_src_bytes"
+      ],
+      "XGBoost": [
+        "dst_pkts_per_sec",
+        "log_src_pkts_per_sec",
+        "dst_bytes_per_sec",
+        "bytes_per_pkt_dst",
+        "log_dst_pkts_per_sec",
+        "log_src_bytes",
+        "pkt_ratio",
+        "log_dst_bytes_per_sec",
+        "service",
+        "bytes_per_pkt_src"
+      ],
+      "CNN": [
+        "log_dst_bytes_per_sec",
+        "dst_bytes_per_sec",
+        "dst_pkts",
+        "dst_bytes",
+        "log_dst_bytes",
+        "log_duration",
+        "bytes_per_pkt_src",
+        "dst_port",
+        "log_dst_pkts_per_sec",
+        "src_bytes_per_sec"
+      ]
+    }
+  },
+  "TON_TON": {
+    "SHAP": {
+      "RandomForest": [
+        "proto",
+        "dst_pkts_per_sec",
+        "dst_pkts",
+        "log_dst_pkts_per_sec",
+        "src_pkts",
+        "conn_state",
+        "pkt_ratio",
+        "service",
+        "log_src_pkts_per_sec",
+        "bytes_per_pkt_dst"
+      ],
+      "SVM": [
+        "src_pkts_per_sec",
+        "src_bytes_per_sec",
+        "dst_pkts_per_sec",
+        "proto",
+        "pkt_ratio",
+        "log_src_bytes_per_sec",
+        "log_duration",
+        "log_dst_pkts_per_sec",
+        "duration",
+        "log_dst_bytes_per_sec"
+      ],
+      "XGBoost": [
+        "proto",
+        "conn_state",
+        "src_pkts",
+        "dst_pkts",
+        "bytes_per_pkt_dst",
+        "log_src_pkts_per_sec",
+        "dst_pkts_per_sec",
+        "pkt_ratio",
+        "duration",
+        "src_port"
+      ],
+      "CNN": [
+        "src_pkts_per_sec",
+        "pkt_ratio",
+        "conn_state",
+        "src_bytes_per_sec",
+        "log_src_bytes_per_sec",
+        "src_port",
+        "log_dst_pkts_per_sec",
+        "dst_pkts_per_sec",
+        "duration",
+        "log_dst_bytes"
+      ]
+    },
+    "LIME": {
+      "RandomForest": [
+        "src_pkts",
+        "conn_state",
+        "proto",
+        "src_port",
+        "service",
+        "src_bytes",
+        "dst_pkts",
+        "log_dst_bytes_per_sec",
+        "log_src_bytes",
+        "log_src_pkts_per_sec"
+      ],
+      "SVM": [
+        "proto",
+        "src_bytes_per_sec",
+        "dst_pkts_per_sec",
+        "src_pkts_per_sec",
+        "pkt_ratio",
+        "log_src_bytes",
+        "duration",
+        "log_dst_bytes",
+        "dst_bytes",
+        "src_pkts"
+      ],
+      "XGBoost": [
+        "src_pkts",
+        "conn_state",
+        "proto",
+        "pkt_ratio",
+        "dst_pkts_per_sec",
+        "dst_pkts",
+        "log_src_bytes",
+        "bytes_per_pkt_dst",
+        "bytes_per_pkt_src",
+        "service"
+      ],
+      "CNN": [
+        "pkt_ratio",
+        "conn_state",
+        "src_pkts_per_sec",
+        "src_bytes_per_sec",
+        "src_port",
+        "bytes_per_pkt_dst",
+        "duration",
+        "dst_pkts_per_sec",
+        "log_src_pkts_per_sec",
+        "log_dst_pkts_per_sec"
+      ]
+    }
+  },
+  "UNSW_TON": {
+    "SHAP": {
+      "RandomForest": [
+        "bytes_per_pkt_dst",
+        "dst_bytes_per_sec",
+        "log_dst_bytes_per_sec",
+        "log_src_pkts_per_sec",
+        "src_pkts_per_sec",
+        "src_bytes",
+        "log_src_bytes",
+        "log_dst_pkts_per_sec",
+        "dst_pkts_per_sec",
+        "bytes_per_pkt_src"
+      ],
+      "SVM": [
+        "src_pkts_per_sec",
+        "src_bytes_per_sec",
+        "dst_port",
+        "dst_pkts",
+        "dst_bytes_per_sec",
+        "log_src_bytes_per_sec",
+        "dst_bytes",
+        "log_src_bytes",
+        "log_src_pkts_per_sec",
+        "log_dst_bytes_per_sec"
+      ],
+      "XGBoost": [
+        "dst_pkts_per_sec",
+        "dst_bytes_per_sec",
+        "log_src_bytes",
+        "log_dst_pkts_per_sec",
+        "bytes_per_pkt_dst",
+        "log_dst_bytes_per_sec",
+        "log_src_pkts_per_sec",
+        "pkt_ratio",
+        "log_src_bytes_per_sec",
+        "conn_state"
+      ],
+      "CNN": [
+        "pkt_ratio",
+        "bytes_per_pkt_src",
+        "dst_port",
+        "dst_bytes_per_sec",
+        "log_src_bytes_per_sec",
+        "dst_bytes",
+        "log_dst_pkts_per_sec",
+        "log_duration",
+        "src_port",
+        "src_pkts_per_sec"
+      ]
+    },
+    "LIME": {
+      "RandomForest": [
+        "log_dst_pkts_per_sec",
+        "log_dst_bytes_per_sec",
+        "dst_pkts_per_sec",
+        "bytes_per_pkt_dst",
+        "log_src_pkts_per_sec",
+        "src_pkts_per_sec",
+        "dst_bytes_per_sec",
+        "pkt_ratio",
+        "log_src_bytes_per_sec",
+        "duration"
+      ],
+      "SVM": [
+        "src_pkts_per_sec",
+        "dst_port",
+        "src_bytes_per_sec",
+        "dst_bytes_per_sec",
+        "duration",
+        "dst_pkts",
+        "log_src_pkts_per_sec",
+        "src_bytes",
+        "dst_pkts_per_sec",
+        "proto"
+      ],
+      "XGBoost": [
+        "dst_pkts_per_sec",
+        "log_src_pkts_per_sec",
+        "log_dst_pkts_per_sec",
+        "bytes_per_pkt_dst",
+        "log_src_bytes",
+        "dst_bytes_per_sec",
+        "pkt_ratio",
+        "src_bytes",
+        "dst_pkts",
+        "log_dst_bytes_per_sec"
+      ],
+      "CNN": [
+        "log_dst_bytes_per_sec",
+        "dst_bytes",
+        "log_duration",
+        "dst_pkts",
+        "dst_bytes_per_sec",
+        "log_dst_pkts_per_sec",
+        "log_dst_bytes",
+        "bytes_per_pkt_src",
+        "dst_port",
+        "pkt_ratio"
+      ]
+    }
+  },
+  "TON_UNSW": {
+    "SHAP": {
+      "RandomForest": [
+        "proto",
+        "dst_pkts_per_sec",
+        "log_dst_pkts_per_sec",
+        "dst_pkts",
+        "src_pkts",
+        "src_port",
+        "conn_state",
+        "service",
+        "log_src_pkts_per_sec",
+        "src_pkts_per_sec"
+      ],
+      "SVM": [
+        "dst_pkts_per_sec",
+        "src_pkts_per_sec",
+        "src_bytes_per_sec",
+        "proto",
+        "pkt_ratio",
+        "log_src_bytes_per_sec",
+        "log_duration",
+        "bytes_per_pkt_src",
+        "dst_pkts",
+        "src_bytes"
+      ],
+      "XGBoost": [
+        "proto",
+        "src_pkts",
+        "conn_state",
+        "dst_pkts",
+        "dst_pkts_per_sec",
+        "pkt_ratio",
+        "bytes_per_pkt_dst",
+        "log_src_pkts_per_sec",
+        "src_port",
+        "duration"
+      ],
+      "CNN": [
+        "pkt_ratio",
+        "dst_pkts_per_sec",
+        "src_pkts_per_sec",
+        "duration",
+        "byte_ratio",
+        "conn_state",
+        "log_dst_bytes_per_sec",
+        "log_duration",
+        "src_port",
+        "src_pkts"
+      ]
+    },
+    "LIME": {
+      "RandomForest": [
+        "src_pkts",
+        "proto",
+        "src_port",
+        "service",
+        "log_src_bytes",
+        "bytes_per_pkt_dst",
+        "bytes_per_pkt_src",
+        "dst_pkts",
+        "src_bytes",
+        "conn_state"
+      ],
+      "SVM": [
+        "proto",
+        "dst_pkts_per_sec",
+        "src_pkts_per_sec",
+        "src_bytes_per_sec",
+        "pkt_ratio",
+        "log_src_pkts_per_sec",
+        "log_duration",
+        "log_dst_pkts_per_sec",
+        "log_src_bytes_per_sec",
+        "src_bytes"
+      ],
+      "XGBoost": [
+        "proto",
+        "src_pkts",
+        "conn_state",
+        "dst_pkts_per_sec",
+        "src_port",
+        "log_src_pkts_per_sec",
+        "bytes_per_pkt_dst",
+        "bytes_per_pkt_src",
+        "pkt_ratio",
+        "dst_pkts"
+      ],
+      "CNN": [
+        "pkt_ratio",
+        "conn_state",
+        "src_pkts_per_sec",
+        "log_src_bytes",
+        "dst_pkts_per_sec",
+        "src_port",
+        "src_bytes_per_sec",
+        "log_dst_pkts_per_sec",
+        "duration",
+        "log_duration"
+      ]
+    }
+  }
+}
