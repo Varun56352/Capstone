@@ -1,0 +1,78 @@
+{
+  "binary_classification": {
+    "UNSW_to_TON": {
+      "RandomForest": {
+        "SHAP": { "dominant_feature": "bytes_per_pkt_dst", "accuracy": 0.1754 },
+        "LIME": { "dominant_feature": "conn_state", "accuracy": 0.1867 }
+      },
+      "SVM": {
+        "SHAP": { "dominant_feature": "dst_port", "accuracy": 0.7628 },
+        "LIME": { "dominant_feature": "dst_port", "accuracy": 0.7627 }
+      },
+      "XGBoost": {
+        "SHAP": { "dominant_feature": "bytes_per_pkt_dst", "accuracy": 0.1949 },
+        "LIME": { "dominant_feature": "log_src_bytes", "accuracy": 0.4802 }
+      },
+      "CNN": {
+        "SHAP": { "dominant_feature": "dst_port", "accuracy": 0.4443 },
+        "LIME": { "dominant_feature": "dst_port", "accuracy": 0.3611 }
+      }
+    },
+    "TON_to_UNSW": {
+      "RandomForest": {
+        "SHAP": { "dominant_feature": "proto", "accuracy": 0.1586 },
+        "LIME": { "dominant_feature": "proto", "accuracy": 0.3764 }
+      },
+      "SVM": {
+        "SHAP": { "dominant_feature": "proto", "accuracy": 0.9257 },
+        "LIME": { "dominant_feature": "proto", "accuracy": 0.3300 }
+      },
+      "XGBoost": {
+        "SHAP": { "dominant_feature": "proto", "accuracy": 0.4745 },
+        "LIME": { "dominant_feature": "proto", "accuracy": 0.2192 }
+      },
+      "CNN": {
+        "SHAP": { "dominant_feature": "pkt_ratio", "accuracy": 0.1597 },
+        "LIME": { "dominant_feature": "proto", "accuracy": 0.3144 }
+      }
+    }
+  },
+  "multiclass_classification": {
+    "UNSW_to_TON": {
+      "RandomForest": {
+        "SHAP": { "dominant_feature": "dst_port", "accuracy": 0.2415 },
+        "LIME": { "dominant_feature": "pkt_ratio", "accuracy": 0.2781 }
+      },
+      "SVM": {
+        "SHAP": { "dominant_feature": "dst_port", "accuracy": 0.3791 },
+        "LIME": { "dominant_feature": "dst_port", "accuracy": 0.3791 }
+      },
+      "XGBoost": {
+        "SHAP": { "dominant_feature": "dst_port", "accuracy": 0.1789 },
+        "LIME": { "dominant_feature": "duration", "accuracy": 0.2724 }
+      },
+      "CNN": {
+        "SHAP": { "dominant_feature": "dst_port", "accuracy": 0.2854 },
+        "LIME": { "dominant_feature": "dst_port", "accuracy": 0.3798 }
+      }
+    },
+    "TON_to_UNSW": {
+      "RandomForest": {
+        "SHAP": { "dominant_feature": "src_port", "accuracy": 0.1330 },
+        "LIME": { "dominant_feature": "proto", "accuracy": 0.1306 }
+      },
+      "SVM": {
+        "SHAP": { "dominant_feature": "proto", "accuracy": 0.2937 },
+        "LIME": { "dominant_feature": "proto", "accuracy": 0.2964 }
+      },
+      "XGBoost": {
+        "SHAP": { "dominant_feature": "src_port", "accuracy": 0.2408 },
+        "LIME": { "dominant_feature": "proto", "accuracy": 0.2253 }
+      },
+      "CNN": {
+        "SHAP": { "dominant_feature": "pkt_ratio", "accuracy": 0.0925 },
+        "LIME": { "dominant_feature": "src_port", "accuracy": 0.1348 }
+      }
+    }
+  }
+}

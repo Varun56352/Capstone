@@ -1,0 +1,206 @@
+{
+  "UNSW_TON": {
+    "SHAP": {
+      "RandomForest": [
+        "dst_port",
+        "src_bytes",
+        "bytes_per_pkt_dst",
+        "pkt_ratio",
+        "service",
+        "log_src_bytes",
+        "bytes_per_pkt_src",
+        "byte_ratio",
+        "log_duration",
+        "duration"
+      ],
+      "SVM": [
+        "dst_port",
+        "pkt_ratio",
+        "proto",
+        "log_dst_bytes",
+        "byte_ratio",
+        "src_pkts",
+        "dst_pkts",
+        "bytes_per_pkt_dst",
+        "service",
+        "log_src_bytes"
+      ],
+      "XGBoost": [
+        "dst_port",
+        "bytes_per_pkt_src",
+        "duration",
+        "src_bytes",
+        "bytes_per_pkt_dst",
+        "log_src_bytes",
+        "pkt_ratio",
+        "byte_ratio",
+        "src_port",
+        "dst_bytes"
+      ],
+      "CNN": [
+        "dst_port",
+        "log_dst_bytes",
+        "src_port",
+        "pkt_ratio",
+        "proto",
+        "bytes_per_pkt_dst",
+        "log_src_bytes",
+        "duration",
+        "conn_state",
+        "log_duration"
+      ]
+    },
+    "LIME": {
+      "RandomForest": [
+        "pkt_ratio",
+        "bytes_per_pkt_dst",
+        "log_duration",
+        "duration",
+        "byte_ratio",
+        "conn_state",
+        "log_src_bytes",
+        "service",
+        "dst_bytes",
+        "log_dst_bytes"
+      ],
+      "SVM": [
+        "dst_port",
+        "bytes_per_pkt_dst",
+        "log_duration",
+        "proto",
+        "log_src_bytes",
+        "duration",
+        "byte_ratio",
+        "dst_bytes",
+        "log_dst_bytes",
+        "service"
+      ],
+      "XGBoost": [
+        "duration",
+        "bytes_per_pkt_dst",
+        "pkt_ratio",
+        "log_src_bytes",
+        "dst_port",
+        "log_dst_bytes",
+        "src_port",
+        "log_duration",
+        "dst_pkts",
+        "service"
+      ],
+      "CNN": [
+        "dst_port",
+        "proto",
+        "log_src_bytes",
+        "duration",
+        "service",
+        "log_duration",
+        "src_port",
+        "bytes_per_pkt_src",
+        "src_pkts",
+        "byte_ratio"
+      ]
+    }
+  },
+  "TON_UNSW": {
+    "SHAP": {
+      "RandomForest": [
+        "src_port",
+        "duration",
+        "log_duration",
+        "conn_state",
+        "pkt_ratio",
+        "proto",
+        "dst_pkts",
+        "src_pkts",
+        "service",
+        "dst_bytes"
+      ],
+      "SVM": [
+        "proto",
+        "duration",
+        "service",
+        "pkt_ratio",
+        "log_src_bytes",
+        "conn_state",
+        "src_port",
+        "log_duration",
+        "byte_ratio",
+        "log_dst_bytes"
+      ],
+      "XGBoost": [
+        "src_port",
+        "duration",
+        "proto",
+        "conn_state",
+        "pkt_ratio",
+        "src_pkts",
+        "dst_pkts",
+        "service",
+        "bytes_per_pkt_src",
+        "byte_ratio"
+      ],
+      "CNN": [
+        "pkt_ratio",
+        "src_port",
+        "conn_state",
+        "log_src_bytes",
+        "byte_ratio",
+        "src_pkts",
+        "log_dst_bytes",
+        "log_duration",
+        "duration",
+        "service"
+      ]
+    },
+    "LIME": {
+      "RandomForest": [
+        "proto",
+        "src_pkts",
+        "service",
+        "conn_state",
+        "log_dst_bytes",
+        "log_src_bytes",
+        "src_bytes",
+        "dst_pkts",
+        "src_port",
+        "pkt_ratio"
+      ],
+      "SVM": [
+        "proto",
+        "duration",
+        "service",
+        "log_src_bytes",
+        "conn_state",
+        "src_port",
+        "pkt_ratio",
+        "log_duration",
+        "src_pkts",
+        "dst_pkts"
+      ],
+      "XGBoost": [
+        "proto",
+        "pkt_ratio",
+        "src_port",
+        "conn_state",
+        "duration",
+        "log_src_bytes",
+        "dst_pkts",
+        "dst_bytes",
+        "src_bytes",
+        "log_dst_bytes"
+      ],
+      "CNN": [
+        "src_port",
+        "conn_state",
+        "pkt_ratio",
+        "bytes_per_pkt_src",
+        "log_src_bytes",
+        "log_duration",
+        "byte_ratio",
+        "dst_bytes",
+        "src_pkts",
+        "service"
+      ]
+    }
+  }
+}
